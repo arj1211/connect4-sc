@@ -7,13 +7,14 @@ object GameLogic {
   def createGame(
       rows: Int = 6,
       cols: Int = 7,
-      initBoard: Option[Board] = None
+      initBoard: Option[Board] = None,
+      initPlayer: Player = Red
   ): GameState = {
     val emptyGrid = Vector.fill(rows, cols)(None: Board.Cell)
     val initialBoard = initBoard.getOrElse(Board(emptyGrid, rows, cols))
     GameState(
       initialBoard,
-      Red,
+      initPlayer,
       Ongoing
     )
   }
@@ -33,7 +34,7 @@ object GameLogic {
             val newGrid = gameState.board.grid.updated(row, newRow)
             val newBoard = gameState.board.copy(newGrid)
             val newStatus =
-              checkWinner(newBoard, gameState.currentPlayer, row, column)
+              checkWinner(newBoard, gameState.currentPlayer)
             val nextPlayer = gameState.currentPlayer match {
               case Red    => Yellow
               case Yellow => Red
@@ -49,99 +50,37 @@ object GameLogic {
 
   private def checkWinner(
       board: Board,
-      player: Player,
-      lastRow: Int,
-      lastCol: Int
+      player: Player
   ): GameStatus = {
 
-    def checkLine(line: Vector[Board.Cell]): Boolean =
+    def isWinningLine(line: Vector[Board.Cell]): Boolean =
       line.forall(_ == Some(player))
 
-    def inBounds(r: Int, c: Int) =
-      r >= 0 && r < board.rows && c >= 0 && c < board.cols
+    val allLines = {
+      // we're considering horizontal lines of length 4
+      val horizontals = for {
+        row <- 0 until board.rows
+        col <- 0 to (board.cols - 4)
+      } yield Vector.tabulate(4)(d => board.grid(row)(col + d))
+      // we're considering vertical lines of length 4
+      val verticals = for {
+        row <- 0 to (board.rows - 4)
+        col <- 0 until board.cols
+      } yield Vector.tabulate(4)(d => board.grid(row + d)(col))
+      // starting at top left corner and going top-left-down-right for length 4 at a time
+      val diagonalsNeg = for {
+        row <- 0 to (board.rows - 4)
+        col <- 0 to (board.cols - 4)
+      } yield Vector.tabulate(4)(d => board.grid(row + d)(col + d))
+      // starting at row < 3 doesn't yield an down-left-up-right diagonal of length 4
+      val diagonalsPos = for {
+        row <- 3 until board.rows
+        col <- 0 to (board.cols - 4)
+      } yield Vector.tabulate(4)(d => board.grid(row - d)(col + d))
+      horizontals ++ verticals ++ diagonalsNeg ++ diagonalsPos
+    }
 
-    def traceDiag(
-        r: Int,
-        c: Int,
-        dr: Int,
-        dc: Int,
-        accumulation: Vector[Board.Cell]
-    ): Vector[Board.Cell] =
-      if (!inBounds(r, c)) accumulation
-      else traceDiag(r + dr, c + dc, dr, dc, board.grid(r)(c) +: accumulation)
-
-    def getFullDiag(r: Int, c: Int, dr: Int, dc: Int): Vector[Board.Cell] =
-      traceDiag(
-        r,
-        c,
-        dr,
-        dc,
-        Vector()
-      ) ++ traceDiag(
-        r,
-        c,
-        -dr,
-        -dc,
-        Vector()
-      ).reverse.tail
-
-    def containsWin(g: Vector[Vector[Board.Cell]]) =
-      g.map(checkLine).contains(true)
-
-    // 1. Horizontals
-    val potentialRows: Vector[Vector[Board.Cell]] =
-      board.grid.zipWithIndex
-        .filter(z => Math.abs(lastRow - z._2) <= 3)
-        .filter(z => z._2 == lastRow)
-        .map { x => x._1 }
-        .head
-        .zipWithIndex
-        .filter(z => Math.abs(lastCol - z._2) <= 3)
-        .map { x => x._1 }
-        .sliding(4)
-        .toVector
-
-    // 2. Verticals
-    val potentialCols: Vector[Vector[Board.Cell]] =
-      board.grid.transpose.zipWithIndex
-        .filter(z => Math.abs(lastCol - z._2) <= 3)
-        .filter(z => z._2 == lastCol)
-        .map { x => x._1 }
-        .head
-        .zipWithIndex
-        .filter(z => Math.abs(lastRow - z._2) <= 3)
-        .map { x => x._1 }
-        .sliding(4)
-        .toVector
-
-    // 3. Diagonals
-    val negDiag: Vector[Vector[Board.Cell]] =
-      getFullDiag(lastRow, lastCol, -1, -1).zipWithIndex
-        .filter(z =>
-          (Math.abs(lastCol - z._2) <= 3) || (Math.abs(
-            lastRow - z._2
-          ) <= 3)
-        )
-        .map { x => x._1 }
-        .sliding(4)
-        .toVector
-
-    val posDiag: Vector[Vector[Board.Cell]] =
-      getFullDiag(lastRow, lastCol, 1, -1).zipWithIndex
-        .filter(z =>
-          (Math.abs(lastCol - z._2) <= 3) || (Math.abs(
-            lastRow - z._2
-          ) <= 3)
-        )
-        .map { x => x._1 }
-        .sliding(4)
-        .toVector
-
-    if (
-      List(potentialRows, potentialCols, negDiag, posDiag)
-        .map(containsWin)
-        .contains(true)
-    )
+    if (allLines.exists(isWinningLine))
       Win(player)
     else if (isBoardFull(board)) Draw
     else Ongoing
