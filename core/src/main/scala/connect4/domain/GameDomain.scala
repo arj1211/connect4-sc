@@ -34,3 +34,8 @@ object Board {
 
 // Final Game State
 case class GameState(board: Board, currentPlayer: Player, status: GameStatus)
+
+sealed trait GameError
+case object ColumnFull extends GameError
+case object ColumnOutOfBounds extends GameError
+case object GameAlreadyOver extends GameError

@@ -2,6 +2,17 @@ package connect4.logic
 
 import connect4.domain._
 import scala.collection.immutable.VectorImpl
+import connect4.domain.{
+  Board,
+  Draw,
+  GameState,
+  GameStatus,
+  Ongoing,
+  Player,
+  Red,
+  Win,
+  Yellow
+}
 
 object GameLogic {
   def createGame(
@@ -19,14 +30,19 @@ object GameLogic {
     )
   }
 
-  def placeDisc(gameState: GameState, column: Int): Option[GameState] = {
+  def placeDisc(
+      gameState: GameState,
+      column: Int
+  ): Either[GameError, GameState] = {
+    if (column < 0 || column >= gameState.board.cols)
+      Left(ColumnOutOfBounds)
     gameState.status match {
       case Ongoing =>
         val targetRow = (gameState.board.rows - 1 to 0 by -1).find { row =>
           gameState.board.grid(row)(column).isEmpty
         }
         targetRow match {
-          case None      => None
+          case None      => Left(ColumnFull)
           case Some(row) =>
             val newRow = gameState.board
               .grid(row)
@@ -39,10 +55,9 @@ object GameLogic {
               case Red    => Yellow
               case Yellow => Red
             }
-
-            Some(GameState(newBoard, nextPlayer, newStatus))
+            Right(GameState(newBoard, nextPlayer, newStatus))
         }
-      case Win(_) | Draw => None
+      case Win(_) | Draw => Left(GameAlreadyOver)
     }
   }
 

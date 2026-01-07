@@ -2,8 +2,10 @@ package connect4
 
 import connect4.logic.GameLogic
 import connect4.domain._
+import org.scalacheck.Prop.forAll
+import munit.ScalaCheckSuite
 
-class GameLogicSpec extends munit.FunSuite {
+class GameLogicSpec extends munit.ScalaCheckSuite {
   val exampleBoard = Board(
     Vector(
       Vector(None, None, None, None, None, None, None),
@@ -163,4 +165,58 @@ class GameLogicSpec extends munit.FunSuite {
     nextState = GameLogic.placeDisc(initState, 3).getOrElse(initState)
     assertEquals(nextState.status, Win(Yellow))
   }
+  property("Property: placing a disc should change the board") {
+    forAll { column: Int =>
+      val validColumn = Math.abs(column / 2) % 7
+      val emptyGame = GameLogic.createGame()
+      GameLogic
+        .placeDisc(emptyGame, validColumn) match {
+        case Left(err)         => false
+        case Right(aGameState) =>
+          aGameState.board != emptyGame.board
+      }
+    }
+  }
+
+  property(
+    "Property: board should have exactly one more disc after valid move"
+  ) {
+    forAll { column: Int =>
+      val validColumn = Math.abs(column / 2) % 7
+      val emptyGame = GameLogic.createGame()
+      GameLogic
+        .placeDisc(emptyGame, validColumn) match {
+        case Left(err)         => false
+        case Right(aGameState) => countDiscs(aGameState.board) == 1
+      }
+    }
+  }
+  property("Property: single disc cannot be a winning move") {
+    forAll { column: Int =>
+      val validColumn = Math.abs(column / 2) % 7
+      val emptyGame = GameLogic.createGame()
+      GameLogic.placeDisc(emptyGame, validColumn) match {
+        case Left(err)         => false
+        case Right(aGameState) => aGameState.status == Ongoing
+      }
+    }
+  }
+  property("Property: full column returns error") {
+    val fullColBoard = Board(
+      Vector
+        .tabulate(6, 7) { (r, c) =>
+          if (c == 0) Some(Red) else None
+        },
+      6,
+      7
+    )
+    val game = GameState(fullColBoard, Red, Ongoing)
+    GameLogic.placeDisc(game, 0) match {
+      case Left(err)        => err == ColumnFull
+      case Right(someState) => false
+    }
+  }
+
+  private def countDiscs(board: Board): Int =
+    board.grid.flatten.count(_.isDefined)
 }
