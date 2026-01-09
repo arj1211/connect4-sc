@@ -4,6 +4,7 @@ import connect4.logic.GameLogic
 import connect4.domain._
 import org.scalacheck.Prop.forAll
 import munit.ScalaCheckSuite
+import org.scalacheck.Gen
 
 class GameLogicSpec extends munit.ScalaCheckSuite {
   val exampleBoard = Board(
@@ -166,36 +167,32 @@ class GameLogicSpec extends munit.ScalaCheckSuite {
     assertEquals(nextState.status, Win(Yellow))
   }
   property("Property: placing a disc should change the board") {
-    forAll { column: Int =>
-      val validColumn = Math.abs(column / 2) % 7
+    forAll(Gen.choose(0, 6)) { column: Int =>
       val emptyGame = GameLogic.createGame()
       GameLogic
-        .placeDisc(emptyGame, validColumn) match {
+        .placeDisc(emptyGame, column) match {
         case Left(err)         => false
         case Right(aGameState) =>
           aGameState.board != emptyGame.board
       }
     }
   }
-
   property(
     "Property: board should have exactly one more disc after valid move"
   ) {
-    forAll { column: Int =>
-      val validColumn = Math.abs(column / 2) % 7
+    forAll(Gen.choose(0, 6)) { column: Int =>
       val emptyGame = GameLogic.createGame()
       GameLogic
-        .placeDisc(emptyGame, validColumn) match {
+        .placeDisc(emptyGame, column) match {
         case Left(err)         => false
         case Right(aGameState) => countDiscs(aGameState.board) == 1
       }
     }
   }
   property("Property: single disc cannot be a winning move") {
-    forAll { column: Int =>
-      val validColumn = Math.abs(column / 2) % 7
+    forAll(Gen.choose(0, 6)) { column: Int =>
       val emptyGame = GameLogic.createGame()
-      GameLogic.placeDisc(emptyGame, validColumn) match {
+      GameLogic.placeDisc(emptyGame, column) match {
         case Left(err)         => false
         case Right(aGameState) => aGameState.status == Ongoing
       }
@@ -216,7 +213,6 @@ class GameLogicSpec extends munit.ScalaCheckSuite {
       case Right(someState) => false
     }
   }
-
   private def countDiscs(board: Board): Int =
     board.grid.flatten.count(_.isDefined)
 }

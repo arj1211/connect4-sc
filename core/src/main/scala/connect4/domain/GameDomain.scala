@@ -39,3 +39,8 @@ sealed trait GameError
 case object ColumnFull extends GameError
 case object ColumnOutOfBounds extends GameError
 case object GameAlreadyOver extends GameError
+
+trait PlayerEntity {
+  val name: String
+  def chooseMove(gameState: GameState): Either[GameError, Int]
+}

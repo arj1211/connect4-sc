@@ -15,15 +15,26 @@ lazy val core = (project in file("core"))
     )
   )
 
+lazy val entity = (project in file("entity"))
+  .settings(
+    name := "connect4-entity",
+    libraryDependencies ++= Seq(
+      munit % Test,
+      scalacheck % Test,
+      munitScalacheck % Test
+    )
+  )
+  .dependsOn(core)
+
 lazy val cli = (project in file("cli"))
   .settings(
     name := "connect4-cli",
     Compile / mainClass := Some("connect4.CliApp")
   )
-  .dependsOn(core)
+  .dependsOn(core, entity)
 
 lazy val root = (project in file("."))
-  .aggregate(cli)
+  .aggregate(core, entity, cli)
   .settings(
     name := "connect4",
     addCommandAlias("run", "cli/run")
